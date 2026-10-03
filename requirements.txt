@@ -6,3 +6,4 @@ numpy
 scipy
 coolprop
 matplotlib
+reportlab>=4.0.0
