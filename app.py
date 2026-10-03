@@ -54,7 +54,7 @@ with col_header_a:
     st.markdown('<div class="main-title">⚡ HyRAM+ Consequence & Risk Assessment Tool</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-title">Modelado cuantitativo de consecuencias y distancias de seguridad para Hidrógeno y Combustibles Alternativos | Desarrollado por Sandia National Laboratories</div>', unsafe_allow_html=True)
 with col_header_b:
-    st.info("🏢 **Valio Recursos**\n\nHerramienta Técnica en Línea")
+    st.info("🛡️ **Grupo VALIO**\n\n[www.grupovalio.com](https://www.grupovalio.com)\n\nSeguridad de Procesos & PPAM")
 
 # Computation engine with caching
 @st.cache_data(show_spinner="Calculando dinámica de fluidos y radiación con HyRAM+...")
@@ -349,4 +349,4 @@ if calc_success:
         """)
 
 st.markdown("---")
-st.caption("Valio Inmobiliaria & Industrial Safety © 2026 | Desarrollado con base en Sandia National Laboratories HyRAM+ v6.1")
+st.caption("Grupo VALIO · Seguridad de Procesos & Prevención de Accidentes Mayores (PPAM) | [www.grupovalio.com](https://www.grupovalio.com) © 2026 | Desarrollado con base en Sandia National Laboratories HyRAM+ v6.1")
