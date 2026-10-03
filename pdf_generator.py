@@ -1,10 +1,11 @@
 """
 Generador de Reportes Técnicos Oficiales en PDF — HyRAM+ Web
 Desarrollado para Grupo VALIO S.A.S. (www.grupovalio.com)
-Utiliza ReportLab y Matplotlib para generar informes ejecutivos full-color con trazabilidad forense.
+Utiliza ReportLab y Matplotlib para generar informes ejecutivos full-color.
 """
 
 import io
+import re
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -16,15 +17,32 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, KeepTogether, PageBreak
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, KeepTogether
 )
 from reportlab.pdfgen import canvas
 
-from forensics import get_forensic_watermark_token
+
+def sanitize_formula_for_pdf(text: str) -> str:
+    """Convierte subíndices unicode a etiquetas HTML <sub> para ReportLab."""
+    replacements = {
+        'H₂': 'H<sub>2</sub>',
+        'CH₄': 'CH<sub>4</sub>',
+        'C₃H₈': 'C<sub>3</sub>H<sub>8</sub>',
+        'CO₂': 'CO<sub>2</sub>',
+        'm²': 'm<sup>2</sup>',
+        '₂': '<sub>2</sub>',
+        '₃': '<sub>3</sub>',
+        '₄': '<sub>4</sub>',
+        '₈': '<sub>8</sub>',
+        '²': '<sup>2</sup>'
+    }
+    for k, v in replacements.items():
+        text = text.replace(k, v)
+    return text
 
 
 class NumberedCanvas(canvas.Canvas):
-    """Canvas de dos pasadas para numeración precisa 'Página X de Y' y marcas forenses."""
+    """Canvas de dos pasadas para numeración 'Página X de Y' con pie de página limpio."""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._saved_page_states = []
@@ -52,26 +70,24 @@ class NumberedCanvas(canvas.Canvas):
         self.line(36, 11 * inch - 30, 8.5 * inch - 36, 11 * inch - 30)
 
         # Encabezado corriente
-        header_text = "GRUPO VALIO · CONSULTORÍA EN SEGURIDAD DE PROCESOS & PPAM | HyRAM+ v6.1"
-        self.drawString(36, 11 * inch - 26, header_text)
+        header_text = "GRUPO VALIO | Consultoria en Seguridad de Procesos & PPAM | HyRAM+ v6.1"
+        self.drawString(36, 11 * inch - 25, header_text)
 
         # Línea decorativa inferior
-        self.line(36, 40, 8.5 * inch - 36, 40)
+        self.line(36, 38, 8.5 * inch - 36, 38)
 
-        # Pie de página corriente
-        legal_footer = "Documento técnico-académico preliminar. Sujeto a cláusula de exoneración de responsabilidad."
-        # Inyectar marca forense invisible de ancho cero en el pie de página
-        zw_token = get_forensic_watermark_token()
-        self.drawString(36, 28, f"{legal_footer}{zw_token}")
-        page_str = f"Página {self._pageNumber} de {page_count}"
-        self.drawRightString(8.5 * inch - 36, 28, page_str)
+        # Pie de página corriente limpio (sin caracteres Unicode no admitidos)
+        footer_text = "Documento tecnico preliminar. Sujeto a clausula de responsabilidad."
+        self.drawString(36, 26, footer_text)
+        page_str = f"Pagina {self._pageNumber} de {page_count}"
+        self.drawRightString(8.5 * inch - 36, 26, page_str)
 
         self.restoreState()
 
 
 def generate_footprint_image(distances: dict, flame_length: float) -> io.BytesIO:
     """Genera la gráfica 2D de isocontornos de radiación térmica en alta resolución."""
-    fig, ax = plt.subplots(figsize=(7.2, 3.4), dpi=220)
+    fig, ax = plt.subplots(figsize=(7.2, 3.2), dpi=220)
     fig.patch.set_facecolor('#0f172a')
     ax.set_facecolor('#1e293b')
 
@@ -91,24 +107,24 @@ def generate_footprint_image(distances: dict, flame_length: float) -> io.BytesIO
                           linewidth=1.8, label=label)
             ax.add_patch(ell)
 
-    add_zone_patch(d_16, '#10b981', 'Zona Segura (1.6 kW/m²)', alpha=0.20)
-    add_zone_patch(d_47, '#f59e0b', 'Escape Rápido (4.7 kW/m²)', alpha=0.28)
-    add_zone_patch(d_98, '#f97316', 'Daño a Equipos (9.8 kW/m²)', alpha=0.38)
-    add_zone_patch(d_25, '#ef4444', 'Crítico / Llama (25 kW/m²)', alpha=0.50)
+    add_zone_patch(d_16, '#10b981', 'Zona Segura (1.6 kW/m2)', alpha=0.20)
+    add_zone_patch(d_47, '#f59e0b', 'Escape Rapido (4.7 kW/m2)', alpha=0.28)
+    add_zone_patch(d_98, '#f97316', 'Dano a Equipos (9.8 kW/m2)', alpha=0.38)
+    add_zone_patch(d_25, '#ef4444', 'Critico / Llama (25 kW/m2)', alpha=0.50)
 
     # Vector de llama
     ax.plot([0, flame_length], [0, 0], color='#38bdf8', linestyle='--', linewidth=2.5,
             label=f'Llama Visible ({flame_length:.2f} m)', marker='o', markersize=4)
 
     # Punto de origen
-    ax.scatter([0], [0], color='#ffffff', s=60, marker='X', zorder=5, label='Punto de Fuga (0,0)')
+    ax.scatter([0], [0], color='#ffffff', s=60, marker='X', zorder=5, label='Origen de Fuga (0,0)')
 
     # Determinar límites
     max_x = max([d for d in [d_16, d_47, d_98, d_25, flame_length] if d is not None] + [5.0]) * 1.25
     ax.set_xlim(-max_x * 0.25, max_x)
     ax.set_ylim(-max_x * 0.55, max_x * 0.55)
 
-    ax.set_title("Huella 2D de Isocontornos de Radiación Térmica (Vista en Planta)",
+    ax.set_title("Huella 2D de Isocontornos de Radiacion Termica (Vista en Planta)",
                  color='#f8fafc', fontsize=10, fontweight='bold', pad=8)
     ax.set_xlabel("Distancia Axial X (m)", color='#94a3b8', fontsize=8.5)
     ax.set_ylabel("Distancia Transversal Y (m)", color='#94a3b8', fontsize=8.5)
@@ -140,50 +156,55 @@ def build_hyram_pdf_report(input_params: dict, results: dict, seal_data: dict) -
         pagesize=letter,
         leftMargin=36,
         rightMargin=36,
-        topMargin=42,
-        bottomMargin=48
+        topMargin=40,
+        bottomMargin=45
     )
 
-    # Estilos
+    # Metadatos del documento PDF
+    doc.title = f"Informe Tecnico HyRAM - {seal_data['certificate_id']}"
+    doc.author = "Grupo VALIO S.A.S."
+    doc.subject = "Analisis Cuantitativo de Radiacion Termica y Consecuencias"
+    doc.creator = "VALIO Process Safety Suite"
+
     styles = getSampleStyleSheet()
 
     title_style = ParagraphStyle(
         'ReportTitle',
         parent=styles['Heading1'],
         fontName='Helvetica-Bold',
-        fontSize=15,
-        leading=18,
+        fontSize=14,
+        leading=17,
         textColor=colors.HexColor('#0f172a'),
-        spaceAfter=3
+        spaceAfter=2
     )
 
     subtitle_style = ParagraphStyle(
         'ReportSubtitle',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=9,
-        leading=12,
+        fontSize=8.5,
+        leading=11,
         textColor=colors.HexColor('#475569'),
-        spaceAfter=8
+        spaceAfter=6
     )
 
     section_heading = ParagraphStyle(
         'SectionHeading',
         parent=styles['Heading2'],
         fontName='Helvetica-Bold',
-        fontSize=11,
-        leading=14,
+        fontSize=10.5,
+        leading=13,
         textColor=colors.HexColor('#0369a1'),
-        spaceBefore=8,
-        spaceAfter=5
+        spaceBefore=6,
+        spaceAfter=4
     )
 
     body_text = ParagraphStyle(
         'BodyDark',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=8.5,
-        leading=11.5,
+        fontSize=8,
+        leading=11,
         textColor=colors.HexColor('#1e293b')
     )
 
@@ -191,8 +212,8 @@ def build_hyram_pdf_report(input_params: dict, results: dict, seal_data: dict) -
         'LegalClause',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=7,
-        leading=9.5,
+        fontSize=6.5,
+        leading=8.5,
         textColor=colors.HexColor('#64748b'),
         alignment=4  # Justified
     )
@@ -201,8 +222,8 @@ def build_hyram_pdf_report(input_params: dict, results: dict, seal_data: dict) -
         'KpiVal',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=12,
-        leading=14,
+        fontSize=11,
+        leading=13,
         textColor=colors.HexColor('#0f172a'),
         alignment=1
     )
@@ -211,8 +232,8 @@ def build_hyram_pdf_report(input_params: dict, results: dict, seal_data: dict) -
         'KpiLbl',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=7.5,
-        leading=9.5,
+        fontSize=7,
+        leading=9,
         textColor=colors.HexColor('#64748b'),
         alignment=1
     )
@@ -222,44 +243,45 @@ def build_hyram_pdf_report(input_params: dict, results: dict, seal_data: dict) -
     # 1. ENCABEZADO CORPORATIVO
     header_data = [
         [
-            Paragraph("<b>GRUPO VALIO S.A.S.</b><br/><font size=7 color='#64748b'>Consultoría & Ingeniería en Seguridad de Procesos (PPAM)</font>", body_text),
-            Paragraph(f"<b>CERTIFICADO TÉCNICO:</b> <font color='#0284c7'>{seal_data['certificate_id']}</font><br/>"
-                      f"<font size=7 color='#64748b'>Fecha Emisión: {seal_data['timestamp_utc']}</font>", ParagraphStyle('HdrRight', parent=body_text, alignment=2))
+            Paragraph("<b>GRUPO VALIO S.A.S.</b><br/><font size=7 color='#64748b'>Consultoria & Ingenieria en Seguridad de Procesos (PPAM)</font>", body_text),
+            Paragraph(f"<b>IDENTIFICADOR DE INFORME:</b> <font color='#0284c7'>{seal_data['certificate_id']}</font><br/>"
+                      f"<font size=7 color='#64748b'>Fecha Emision: {seal_data['timestamp_utc']}</font>", ParagraphStyle('HdrRight', parent=body_text, alignment=2))
         ]
     ]
-    t_header = Table(header_data, colWidths=[3.6 * inch, 3.8 * inch])
+    t_header = Table(header_data, colWidths=[3.7 * inch, 3.7 * inch])
     t_header.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('TOPPADDING', (0, 0), (-1, -1), 0),
         ('LINEBELOW', (0, -1), (-1, -1), 1.5, colors.HexColor('#0284c7')),
     ]))
     story.append(t_header)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
     # Título del Informe
-    story.append(Paragraph("INFORME TÉCNICO DE CONSECUENCIAS Y DISTANCIAS DE SEGURIDAD", title_style))
+    story.append(Paragraph("INFORME TECNICO DE CONSECUENCIAS Y DISTANCIAS DE SEGURIDAD", title_style))
     story.append(Paragraph(
-        "Evaluación cuantitativa de radiación térmica en chorros de fuego (Jet Fires) según modelos físicos de <b>HyRAM+ v6.1 (Sandia National Laboratories)</b> y normativas <b>NFPA 2 / API 521</b>.",
+        "Evaluacion cuantitativa de radiacion termica en chorros de fuego (Jet Fires) segun modelos fisicos de <b>HyRAM+ v6.1 (Sandia National Laboratories)</b> y normativas <b>NFPA 2 / API 521</b>.",
         subtitle_style
     ))
-    story.append(Spacer(1, 4))
 
-    # 2. CONDICIONES DE ENTRADA Y PARÁMETROS DEL ESCENARIO
-    story.append(Paragraph("1. Condiciones Operacionales y Parámetros del Escenario", section_heading))
+    # 2. CONDICIONES DE ENTRADA
+    story.append(Paragraph("1. Condiciones Operacionales y Parametros del Escenario", section_heading))
+
+    fluid_str = sanitize_formula_for_pdf(input_params.get('fluid_name', 'N/A'))
 
     inputs_table_data = [
         [
-            Paragraph("<b>Fluido Modelado:</b>", body_text), Paragraph(str(input_params.get('fluid_name', 'N/A')), body_text),
-            Paragraph("<b>Presión Almacenamiento:</b>", body_text), Paragraph(f"{input_params.get('pressure_val', 0):.1f} {input_params.get('pressure_unit', 'bar')} ({input_params.get('pressure_pa', 0)/1e5:.1f} bar abs)", body_text)
+            Paragraph("<b>Fluido Modelado:</b>", body_text), Paragraph(fluid_str, body_text),
+            Paragraph("<b>Presion Almacenamiento:</b>", body_text), Paragraph(f"{input_params.get('pressure_val', 0):.1f} {input_params.get('pressure_unit', 'bar')} ({input_params.get('pressure_pa', 0)/1e5:.1f} bar abs)", body_text)
         ],
         [
-            Paragraph("<b>Temperatura Gas:</b>", body_text), Paragraph(f"{input_params.get('temp_c', 0):.1f} °C ({input_params.get('temp_k', 0):.1f} K)", body_text),
-            Paragraph("<b>Diámetro Orificio:</b>", body_text), Paragraph(f"{input_params.get('orif_val', 0):.2f} {input_params.get('orif_unit', 'mm')} ({input_params.get('orif_m', 0)*1000:.2f} mm)", body_text)
+            Paragraph("<b>Temperatura Gas:</b>", body_text), Paragraph(f"{input_params.get('temp_c', 0):.1f} C ({input_params.get('temp_k', 0):.1f} K)", body_text),
+            Paragraph("<b>Diametro Orificio:</b>", body_text), Paragraph(f"{input_params.get('orif_val', 0):.2f} {input_params.get('orif_unit', 'mm')} ({input_params.get('orif_m', 0)*1000:.2f} mm)", body_text)
         ],
         [
             Paragraph("<b>Coeficiente Descarga (Cd):</b>", body_text), Paragraph(f"{input_params.get('cd', 0.85):.2f}", body_text),
-            Paragraph("<b>Condición Ambiental:</b>", body_text), Paragraph(f"{input_params.get('amb_temp_c', 25):.1f} °C | {input_params.get('rh', 80):.0f}% HR | {input_params.get('amb_pres_kpa', 101.325):.1f} kPa", body_text)
+            Paragraph("<b>Condicion Ambiental:</b>", body_text), Paragraph(f"{input_params.get('amb_temp_c', 25):.1f} C | {input_params.get('rh', 80):.0f}% HR | {input_params.get('amb_pres_kpa', 101.325):.1f} kPa", body_text)
         ]
     ]
     t_inputs = Table(inputs_table_data, colWidths=[1.8 * inch, 1.9 * inch, 1.9 * inch, 1.8 * inch])
@@ -267,20 +289,20 @@ def build_hyram_pdf_report(input_params: dict, results: dict, seal_data: dict) -
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
     ]))
     story.append(t_inputs)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
-    # 3. TARJETAS DE INDICADORES CLAVE (KPIS)
-    story.append(Paragraph("2. Indicadores Principales de Riesgo Térmico (KPIs)", section_heading))
+    # 3. INDICADORES CLAVE (KPIS)
+    story.append(Paragraph("2. Indicadores Principales de Riesgo Termico (KPIs)", section_heading))
 
     mass_g_s = results['mass_flow'] * 1000
     mass_kg_h = results['mass_flow'] * 3600
     flame_m = results['flame_length']
     power_kw = results['s_rad'] / 1000
-    regime_str = "Sónico (Choked)" if results['choked'] else "Subsónico"
+    regime_str = "Sonico (Choked)" if results['choked'] else "Subsonico"
 
     kpis_data = [
         [
@@ -290,10 +312,10 @@ def build_hyram_pdf_report(input_params: dict, results: dict, seal_data: dict) -
             Paragraph(f"<b>{regime_str}</b>", kpi_val_style)
         ],
         [
-            Paragraph(f"Tasa de Fuga Masiva<br/><font color='#64748b'>({mass_kg_h:.1f} kg/h)</font>", kpi_lbl_style),
+            Paragraph(f"Tasa de Fuga Masica<br/><font color='#64748b'>({mass_kg_h:.1f} kg/h)</font>", kpi_lbl_style),
             Paragraph("Longitud de Llama<br/><font color='#64748b'>Visible (Ekoto et al.)</font>", kpi_lbl_style),
             Paragraph(f"Potencia Radiativa<br/><font color='#64748b'>({power_kw/1000:.3f} MW)</font>", kpi_lbl_style),
-            Paragraph("Régimen de Escape<br/><font color='#64748b'>Flujo en Orificio</font>", kpi_lbl_style)
+            Paragraph("Regimen de Escape<br/><font color='#64748b'>Flujo en Orificio</font>", kpi_lbl_style)
         ]
     ]
     t_kpis = Table(kpis_data, colWidths=[1.85 * inch, 1.85 * inch, 1.85 * inch, 1.85 * inch])
@@ -303,20 +325,20 @@ def build_hyram_pdf_report(input_params: dict, results: dict, seal_data: dict) -
         ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, 0), 5),
-        ('BOTTOMPADDING', (0, 1), (-1, 1), 5),
+        ('TOPPADDING', (0, 0), (-1, 0), 4),
+        ('BOTTOMPADDING', (0, 1), (-1, 1), 4),
     ]))
     story.append(t_kpis)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
     # 4. HUELLA 2D DE ISOCONTORNOS
-    story.append(Paragraph("3. Mapa 2D de Isocontornos de Radiación Térmica", section_heading))
+    story.append(Paragraph("3. Mapa 2D de Isocontornos de Radiacion Termica", section_heading))
     img_buf = generate_footprint_image(results['distances'], results['flame_length'])
-    story.append(Image(img_buf, width=7.2 * inch, height=3.2 * inch))
-    story.append(Spacer(1, 8))
+    story.append(Image(img_buf, width=7.2 * inch, height=3.0 * inch))
+    story.append(Spacer(1, 6))
 
     # 5. MATRIZ NORMATIVA DE DISTANCIAS
-    story.append(Paragraph("4. Matriz Normativa de Distancias de Separación (NFPA 2 / API 521)", section_heading))
+    story.append(Paragraph("4. Matriz Normativa de Distancias de Separacion (NFPA 2 / API 521)", section_heading))
 
     d_16 = results['distances'].get(1600)
     d_47 = results['distances'].get(4700)
@@ -325,33 +347,33 @@ def build_hyram_pdf_report(input_params: dict, results: dict, seal_data: dict) -
 
     matrix_rows = [
         [
-            Paragraph("<b>Nivel Térmico</b>", body_text),
+            Paragraph("<b>Nivel Termico</b>", body_text),
             Paragraph("<b>Norma Referencia</b>", body_text),
-            Paragraph("<b>Efecto Fisiológico / Criterio de Daño</b>", body_text),
+            Paragraph("<b>Efecto Fisiologico / Criterio de Dano</b>", body_text),
             Paragraph("<b>Distancia Req.</b>", ParagraphStyle('HdrDist', parent=body_text, alignment=2))
         ],
         [
-            Paragraph("<font color='#059669'><b>1.6 kW/m²</b></font>", body_text),
+            Paragraph("<font color='#059669'><b>1.6 kW/m<sup>2</sup></b></font>", body_text),
             Paragraph("NFPA 2 / API 521", body_text),
-            Paragraph("Límite seguro de permanencia prolongada para público general sin EPP.", body_text),
+            Paragraph("Limite seguro de permanencia prolongada para publico general sin EPP.", body_text),
             Paragraph(f"<b>{d_16:.2f} m</b>" if d_16 else "N/A", ParagraphStyle('ValDist', parent=body_text, alignment=2))
         ],
         [
-            Paragraph("<font color='#d97706'><b>4.7 kW/m²</b></font>", body_text),
+            Paragraph("<font color='#d97706'><b>4.7 kW/m<sup>2</sup></b></font>", body_text),
             Paragraph("NFPA 2 / API 521", body_text),
-            Paragraph("Límite de escape de personal calificado (dolor en ~15-20 s; sin quemaduras 2°).", body_text),
+            Paragraph("Limite de escape de personal calificado (dolor en ~15-20 s; sin quemaduras 2do grado).", body_text),
             Paragraph(f"<b>{d_47:.2f} m</b>" if d_47 else "N/A", ParagraphStyle('ValDist', parent=body_text, alignment=2))
         ],
         [
-            Paragraph("<font color='#ea580c'><b>9.8 kW/m²</b></font>", body_text),
+            Paragraph("<font color='#ea580c'><b>9.8 kW/m<sup>2</sup></b></font>", body_text),
             Paragraph("API 521 / NFPA 59A", body_text),
-            Paragraph("Límite de daño a equipos e instrumentación sin aislamiento ignífugo.", body_text),
+            Paragraph("Limite de dano a equipos e instrumentacion sin aislamiento ignifugo.", body_text),
             Paragraph(f"<b>{d_98:.2f} m</b>" if d_98 else "N/A", ParagraphStyle('ValDist', parent=body_text, alignment=2))
         ],
         [
-            Paragraph("<font color='#dc2626'><b>25.0 kW/m²</b></font>", body_text),
+            Paragraph("<font color='#dc2626'><b>25.0 kW/m<sup>2</sup></b></font>", body_text),
             Paragraph("API 521", body_text),
-            Paragraph("Radiación crítica destructiva; ignición de madera y daño estructural rápido.", body_text),
+            Paragraph("Radiacion critica destructiva; ignicion de madera y dano estructural rapido.", body_text),
             Paragraph(f"<b>{d_25:.2f} m</b>" if d_25 else "N/A", ParagraphStyle('ValDist', parent=body_text, alignment=2))
         ],
     ]
@@ -361,52 +383,48 @@ def build_hyram_pdf_report(input_params: dict, results: dict, seal_data: dict) -
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
         ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#ecfdf5')),
         ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#fffbeb')),
         ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#fff7ed')),
         ('BACKGROUND', (0, 4), (-1, 4), colors.HexColor('#fef2f2')),
     ]))
     story.append(t_matrix)
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 8))
 
-    # 6. BLINDAJE LEGAL Y RÉGIMEN DE LICENCIAS (OBLIGATORIO)
+    # 6. MARCO LEGAL Y LICENCIAS
     legal_box = [
         [
             Paragraph(
-                "<b>AVISO LEGAL VINCULANTE & CLÁUSULA DE EXCLUSIÓN DE RESPONSABILIDAD (\"AS IS\"):</b><br/>"
-                "El presente informe técnico ha sido generado automáticamente por la plataforma web <i>HyRAM+ Web</i> "
-                "de <b>Grupo VALIO S.A.S.</b> con propósitos <b>estrictamente preliminares, pedagógicos y de divulgación técnica</b>. "
-                "Bajo ninguna circunstancia este documento sustituye un Análisis Cuantitativo de Riesgos (QRA) definitivo, una memoria "
-                "de cálculo pericial ni una ingeniería de detalle firmada y aprobada por ingenieros especialistas matriculados.<br/>"
-                "<b>Exoneración total:</b> Ni Grupo VALIO S.A.S., ni sus directivos, colaboradores o desarrolladores asumen responsabilidad "
-                "legal, civil, comercial o penal por decisiones operativas, pérdidas económicas, daños a instalaciones o afectaciones a personas "
-                "derivadas de la aplicación directa o indirecta de los resultados consignados en este informe.<br/>"
-                "<b>Régimen de Licencia y Atribución:</b> El motor físico subyacente corresponde a <b>HyRAM+ v6.1</b>, desarrollado por "
-                "<b>Sandia National Laboratories / National Technology and Engineering Solutions of Sandia, LLC (NTESS)</b> para el "
-                "Departamento de Energía de los Estados Unidos (DOE). HyRAM+ está licenciado bajo la <b>GNU General Public License v3.0 (GPL-3.0)</b>. "
-                "La adaptación web y parametrización de visualización por Grupo VALIO respeta plenamente dicha licencia abierta sin implicar "
-                "respaldo ni patrocinio oficial por parte del gobierno estadounidense.",
+                "<b>AVISO LEGAL Y CLAUSULA DE EXCLUSION DE RESPONSABILIDAD:</b><br/>"
+                "El presente informe tecnico ha sido generado por la plataforma <i>HyRAM+ Web</i> "
+                "de <b>Grupo VALIO S.A.S.</b> con propositos <b>estrictamente preliminares, pedagogicos y de evaluacion conceptual</b>. "
+                "Este documento no sustituye un Analisis Cuantitativo de Riesgos (QRA) definitivo ni una memoria "
+                "de calculo pericial firmada por ingenieros matriculados.<br/>"
+                "<b>Exoneracion:</b> Ni Grupo VALIO S.A.S. ni sus colaboradores asumen responsabilidad "
+                "legal, civil o comercial por decisiones operativas o danos derivados del uso de estos resultados.<br/>"
+                "<b>Regimen de Licencia:</b> El motor fisico corresponde a <b>HyRAM+ v6.1</b>, desarrollado por "
+                "<b>Sandia National Laboratories / NTESS / US DOE</b> bajo licencia <b>GNU General Public License v3.0 (GPL-3.0)</b>. "
+                "Esta adaptacion web respeta dicha licencia sin implicar patrocinio de agencias gubernamentales de EE.UU.",
                 legal_text
             )
         ],
         [
             Paragraph(
-                f"<b>Sello Criptográfico Forense:</b> SHA-256 = <font face='Courier' size=6 color='#0284c7'>{seal_data['sha256']}</font><br/>"
-                f"<b>Trazabilidad Digital:</b> Certificado ID: {seal_data['certificate_id']} | Emisor: Grupo VALIO S.A.S. | "
-                f"Verificación web en: <font color='#0284c7'>www.grupovalio.com/seguridad-procesos</font>",
-                ParagraphStyle('HashStamp', parent=legal_text, fontSize=6.5, leading=8.5, textColor=colors.HexColor('#334155'))
+                f"<b>Control de Integridad:</b> Ref: {seal_data['certificate_id']} | "
+                f"Emision: {seal_data['timestamp_utc']} | Grupo VALIO S.A.S. (www.grupovalio.com)",
+                ParagraphStyle('HashStamp', parent=legal_text, fontSize=6.5, leading=8, textColor=colors.HexColor('#475569'))
             )
         ]
     ]
     t_legal = Table(legal_box, colWidths=[7.4 * inch])
     t_legal.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
-        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#94a3b8')),
+        ('BOX', (0, 0), (-1, -1), 0.75, colors.HexColor('#94a3b8')),
         ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('LEFTPADDING', (0, 0), (-1, -1), 6),
         ('RIGHTPADDING', (0, 0), (-1, -1), 6),
     ]))
