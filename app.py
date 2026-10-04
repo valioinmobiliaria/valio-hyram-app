@@ -75,6 +75,66 @@ st.markdown("""
     .dist-47 { background: rgba(245, 158, 11, 0.15); border-left: 3px solid #f59e0b; color: #f59e0b; }
     .dist-98 { background: rgba(249, 115, 22, 0.15); border-left: 3px solid #f97316; color: #f97316; }
     .dist-25 { background: rgba(239, 68, 68, 0.15); border-left: 3px solid #ef4444; color: #ef4444; }
+
+    /* ======================================================== */
+    /* LEY DE FITTS: TAMAÑOS TÁCTILES ERGONÓMICOS (>= 44 PX)   */
+    /* ======================================================== */
+    .stDownloadButton button, 
+    .stButton button,
+    div[data-testid="stDownloadButton"] button,
+    div[data-testid="stButton"] button {
+        min-height: 44px !important;
+        padding: 0.6rem 1rem !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        font-size: 0.88rem !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    .stDownloadButton button:hover,
+    .stButton button:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25) !important;
+    }
+
+    /* Sliders táctiles con manipulador ampliado (24x24 px) para móviles */
+    div[data-testid="stSlider"] div[role="slider"] {
+        width: 24px !important;
+        height: 24px !important;
+        background-color: #0ea5e9 !important;
+        border: 2px solid #ffffff !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+        cursor: grab !important;
+        transition: transform 0.15s ease !important;
+    }
+    div[data-testid="stSlider"] div[role="slider"]:active {
+        transform: scale(1.15) !important;
+        cursor: grabbing !important;
+    }
+    div[data-testid="stSlider"] > div {
+        padding-top: 0.8rem !important;
+        padding-bottom: 0.8rem !important;
+    }
+
+    /* Controles de selección y radio con altura táctil ergonómica */
+    div[data-testid="stSelectbox"] > div > div {
+        min-height: 44px !important;
+        border-radius: 8px !important;
+    }
+    div[data-testid="stRadio"] div[role="radiogroup"] > label {
+        min-height: 40px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        padding: 0.25rem 0.6rem !important;
+        border-radius: 6px !important;
+    }
+
+    /* Botón de apertura de barra lateral en mobile (min 44x44 px) */
+    button[data-testid="stSidebarCollapseButton"],
+    button[data-testid="baseButton-headerNoPadding"],
+    div[data-testid="stSidebarCollapseButton"] button {
+        min-width: 44px !important;
+        min-height: 44px !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -136,14 +196,84 @@ def compute_hyram_jet_flame(fuel_name, pres_pa, temp_k, orif_diam_m, cd, amb_pre
     }
 
 # ---------------------------------------------------------
+# PRESETS DE ESCENARIOS TÍPICOS (LEY DE HICK)
+# ---------------------------------------------------------
+PRESET_SCENARIOS = {
+    "Personalizado (Ajuste Manual)": None,
+    "Fuga Menor en Racor / Fitting (1 mm @ 700 bar H₂)": {
+        "fuel": "Hidrógeno (H₂)", "pres_unit": "bar", "pres_val": 700.0,
+        "orif_unit": "mm", "orif_val": 1.0, "temp_c": 20, "cd": 0.85
+    },
+    "Rotura de Manguera en Dispensador (4 mm @ 350 bar H₂)": {
+        "fuel": "Hidrógeno (H₂)", "pres_unit": "bar", "pres_val": 350.0,
+        "orif_unit": "mm", "orif_val": 4.0, "temp_c": 20, "cd": 0.85
+    },
+    "Fuga en Tubing de Rack de Almacenamiento (6 mm @ 200 bar H₂)": {
+        "fuel": "Hidrógeno (H₂)", "pres_unit": "bar", "pres_val": 200.0,
+        "orif_unit": "mm", "orif_val": 6.0, "temp_c": 20, "cd": 0.85
+    },
+    "Falla Mayor en Tubería de Gas Natural (12 mm @ 50 bar CH₄)": {
+        "fuel": "Metano (CH₄)", "pres_unit": "bar", "pres_val": 50.0,
+        "orif_unit": "mm", "orif_val": 12.0, "temp_c": 20, "cd": 0.85
+    }
+}
+
+# Inicialización de estado para widgets reactivos
+if "widget_fuel" not in st.session_state:
+    st.session_state.widget_fuel = "Hidrógeno (H₂)"
+if "widget_pres_unit" not in st.session_state:
+    st.session_state.widget_pres_unit = "bar"
+if "widget_pres_bar" not in st.session_state:
+    st.session_state.widget_pres_bar = 200.0
+if "widget_pres_mpa" not in st.session_state:
+    st.session_state.widget_pres_mpa = 20.0
+if "widget_pres_psi" not in st.session_state:
+    st.session_state.widget_pres_psi = 2900.0
+if "widget_orif_unit" not in st.session_state:
+    st.session_state.widget_orif_unit = "mm"
+if "widget_orif_mm" not in st.session_state:
+    st.session_state.widget_orif_mm = 2.0
+if "widget_orif_in" not in st.session_state:
+    st.session_state.widget_orif_in = 0.08
+if "widget_temp_c" not in st.session_state:
+    st.session_state.widget_temp_c = 20
+if "widget_cd" not in st.session_state:
+    st.session_state.widget_cd = 0.85
+
+def apply_preset():
+    choice = st.session_state.preset_selector
+    if choice in PRESET_SCENARIOS and PRESET_SCENARIOS[choice] is not None:
+        p = PRESET_SCENARIOS[choice]
+        st.session_state.widget_fuel = p["fuel"]
+        st.session_state.widget_pres_unit = p["pres_unit"]
+        st.session_state.widget_pres_bar = p["pres_val"]
+        st.session_state.widget_pres_mpa = round(p["pres_val"] * 0.1, 2)
+        st.session_state.widget_pres_psi = round(p["pres_val"] * 14.5038, 1)
+        st.session_state.widget_orif_unit = p["orif_unit"]
+        st.session_state.widget_orif_mm = p["orif_val"]
+        st.session_state.widget_orif_in = round(p["orif_val"] / 25.4, 2)
+        st.session_state.widget_temp_c = p["temp_c"]
+        st.session_state.widget_cd = p["cd"]
+
+# ---------------------------------------------------------
 # BARRA LATERAL: PARÁMETROS DE OPERACIÓN
 # ---------------------------------------------------------
+st.sidebar.header("🎯 Escenarios de Referencia (Ley de Hick)")
+st.sidebar.selectbox(
+    "Cargar Preset Típico",
+    list(PRESET_SCENARIOS.keys()),
+    key="preset_selector",
+    on_change=apply_preset,
+    help="Configura automáticamente parámetros de referencia de la industria reduciendo la sobrecarga de decisión."
+)
+
+st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Parámetros de Operación")
 
 fuel_option = st.sidebar.selectbox(
     "Fluido Combustible",
     ["Hidrógeno (H₂)", "Metano (CH₄)", "Propano (C₃H₈)"],
-    index=0,
+    key="widget_fuel",
     help="Gas combustible a evaluar según modelos de termodinámica de fluidos reales."
 )
 fuel_key_map = {
@@ -154,33 +284,33 @@ fuel_key_map = {
 selected_fuel = fuel_key_map[fuel_option]
 
 st.sidebar.subheader("Presión del Sistema")
-pres_unit = st.sidebar.radio("Unidad de Presión", ["bar", "MPa", "psi"], horizontal=True)
+pres_unit = st.sidebar.radio("Unidad de Presión", ["bar", "MPa", "psi"], key="widget_pres_unit", horizontal=True)
 
 if pres_unit == "bar":
-    pres_val = st.sidebar.number_input("Presión de Almacenamiento (bar)", min_value=1.5, max_value=1000.0, value=200.0, step=10.0, help="Presión en bar manométrico/absoluto.")
+    pres_val = st.sidebar.number_input("Presión de Almacenamiento (bar)", min_value=1.5, max_value=1000.0, key="widget_pres_bar", step=10.0, help="Presión en bar manométrico/absoluto.")
     pres_pa = pres_val * 1e5
 elif pres_unit == "MPa":
-    pres_val = st.sidebar.number_input("Presión de Almacenamiento (MPa)", min_value=0.15, max_value=100.0, value=20.0, step=1.0, help="Presión en megapascales.")
+    pres_val = st.sidebar.number_input("Presión de Almacenamiento (MPa)", min_value=0.15, max_value=100.0, key="widget_pres_mpa", step=1.0, help="Presión en megapascales.")
     pres_pa = pres_val * 1e6
 else:
-    pres_val = st.sidebar.number_input("Presión de Almacenamiento (psi)", min_value=20.0, max_value=14500.0, value=2900.0, step=100.0, help="Presión en psi.")
+    pres_val = st.sidebar.number_input("Presión de Almacenamiento (psi)", min_value=20.0, max_value=14500.0, key="widget_pres_psi", step=100.0, help="Presión en psi.")
     pres_pa = pres_val * 6894.76
 
 st.sidebar.subheader("Temperatura del Gas")
-temp_c = st.sidebar.slider("Temperatura (°C)", min_value=-50, max_value=80, value=20, step=1, help="Temperatura de almacenamiento del fluido.")
+temp_c = st.sidebar.slider("Temperatura (°C)", min_value=-50, max_value=80, key="widget_temp_c", step=1, help="Temperatura de almacenamiento del fluido.")
 temp_k = temp_c + 273.15
 
 st.sidebar.subheader("Geometría de la Fuga")
-orif_unit = st.sidebar.radio("Unidad Diámetro", ["mm", "pulgadas (in)"], horizontal=True)
+orif_unit = st.sidebar.radio("Unidad Diámetro", ["mm", "pulgadas (in)"], key="widget_orif_unit", horizontal=True)
 
 if orif_unit == "mm":
-    orif_diam_val = st.sidebar.slider("Diámetro del Orificio (mm)", min_value=0.5, max_value=25.0, value=2.0, step=0.5, help="Diámetro equivalente de la rotura.")
+    orif_diam_val = st.sidebar.slider("Diámetro del Orificio (mm)", min_value=0.5, max_value=25.0, key="widget_orif_mm", step=0.5, help="Diámetro equivalente de la rotura.")
     orif_diam_m = orif_diam_val * 1e-3
 else:
-    orif_diam_val = st.sidebar.slider("Diámetro del Orificio (in)", min_value=0.02, max_value=1.0, value=0.08, step=0.01, help="Diámetro de fuga en pulgadas.")
+    orif_diam_val = st.sidebar.slider("Diámetro del Orificio (in)", min_value=0.02, max_value=1.0, key="widget_orif_in", step=0.01, help="Diámetro de fuga en pulgadas.")
     orif_diam_m = orif_diam_val * 0.0254
 
-cd_coeff = st.sidebar.slider("Coeficiente de Descarga (Cd)", min_value=0.5, max_value=1.0, value=0.85, step=0.05, help="Coeficiente de descarga según geometría del orificio.")
+cd_coeff = st.sidebar.slider("Coeficiente de Descarga (Cd)", min_value=0.5, max_value=1.0, key="widget_cd", step=0.05, help="Coeficiente de descarga según geometría del orificio.")
 
 with st.sidebar.expander("🌐 Condiciones Ambientales", expanded=False):
     amb_temp_c = st.slider("Temperatura Ambiente (°C)", min_value=-20, max_value=50, value=25)
@@ -227,6 +357,22 @@ if calc_success:
         "s_rad": results['s_rad']
     })
 
+    d_16 = results['distances'].get(1600)
+    d_47 = results['distances'].get(4700)
+    d_98 = results['distances'].get(9800)
+    d_25 = results['distances'].get(25000)
+
+    # Indicador de Criticidad del Escenario (Ley de Hick / Feedback rápido)
+    d_crit = d_16 or 0
+    if d_crit < 5.0:
+        crit_badge = '<span style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid #10b981; padding: 0.2rem 0.6rem; border-radius: 6px; font-weight: 700; font-size: 0.78rem;">🟢 Impacto Térmico Bajo (< 5 m)</span>'
+    elif d_crit < 15.0:
+        crit_badge = '<span style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid #f59e0b; padding: 0.2rem 0.6rem; border-radius: 6px; font-weight: 700; font-size: 0.78rem;">🟡 Impacto Térmico Moderado (5 - 15 m)</span>'
+    else:
+        crit_badge = '<span style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid #ef4444; padding: 0.2rem 0.6rem; border-radius: 6px; font-weight: 700; font-size: 0.78rem;">🔴 Impacto Térmico Mayor / Crítico (> 15 m)</span>'
+
+    st.markdown(f'<div style="margin-bottom: 0.6rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;"><span style="font-size: 0.82rem; color: #64748b; font-weight: 600;">Simulación de Consecuencias Termodinámicas en Tiempo Real</span>{crit_badge}</div>', unsafe_allow_html=True)
+
     # ---------------------------------------------------------
     # 1. BLOQUE DE KPIS (PARTE SUPERIOR)
     # ---------------------------------------------------------
@@ -267,11 +413,6 @@ if calc_success:
     # 2. VISTA PRINCIPAL: DISTANCIAS + MAPA 2D EN PARALELO
     # ---------------------------------------------------------
     col_dist, col_map = st.columns([1, 1.25], gap="medium")
-
-    d_16 = results['distances'].get(1600)
-    d_47 = results['distances'].get(4700)
-    d_98 = results['distances'].get(9800)
-    d_25 = results['distances'].get(25000)
 
     with col_dist:
         st.subheader("🔥 Distancias de Separación")
