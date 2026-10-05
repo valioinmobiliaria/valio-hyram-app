@@ -32,16 +32,20 @@ st.set_page_config(
 st.markdown("""
 <style>
     .block-container {
-        padding-top: 1.5rem;
+        padding-top: 4rem;
         padding-bottom: 2rem;
     }
     .main-title {
         font-size: 1.85rem;
         font-weight: 800;
-        background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+        line-height: 1.3;
+        padding: 0.15rem 0 0.2rem 0;
+        background: linear-gradient(135deg, #7ed694 0%, #5BBD71 55%, #4a9b5d 100%);
         -webkit-background-clip: text;
+        background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 0.1rem;
+        overflow: visible;
     }
     .sub-title {
         font-size: 0.88rem;
@@ -50,8 +54,8 @@ st.markdown("""
         line-height: 1.3;
     }
     .valio-header-card {
-        background: rgba(14, 165, 233, 0.06);
-        border: 1px solid rgba(14, 165, 233, 0.25);
+        background: rgba(91, 189, 113, 0.06);
+        border: 1px solid rgba(91, 189, 113, 0.3);
         border-radius: 8px;
         padding: 0.4rem 0.8rem;
         text-align: right;
@@ -70,14 +74,17 @@ st.markdown("""
         margin-bottom: 0.4rem;
         display: flex;
         justify-content: space-between;
+        align-items: center;
+        gap: 0.6rem;
     }
+    .dist-badge b { white-space: nowrap; }
     .dist-16 { background: rgba(16, 185, 129, 0.15); border-left: 3px solid #10b981; color: #10b981; }
     .dist-47 { background: rgba(245, 158, 11, 0.15); border-left: 3px solid #f59e0b; color: #f59e0b; }
     .dist-98 { background: rgba(249, 115, 22, 0.15); border-left: 3px solid #f97316; color: #f97316; }
     .dist-25 { background: rgba(239, 68, 68, 0.15); border-left: 3px solid #ef4444; color: #ef4444; }
 
     /* ======================================================== */
-    /* LEY DE FITTS: TAMAÑOS TÁCTILES ERGONÓMICOS (>= 44 PX)   */
+    /* TAMAÑOS TÁCTILES DE CONTROLES (>= 44 PX)                 */
     /* ======================================================== */
     .stDownloadButton button, 
     .stButton button,
@@ -93,14 +100,14 @@ st.markdown("""
     .stDownloadButton button:hover,
     .stButton button:hover {
         transform: translateY(-1px) !important;
-        box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25) !important;
+        box-shadow: 0 4px 12px rgba(91, 189, 113, 0.25) !important;
     }
 
     /* Sliders táctiles con manipulador ampliado (24x24 px) para móviles */
     div[data-testid="stSlider"] div[role="slider"] {
         width: 24px !important;
         height: 24px !important;
-        background-color: #0ea5e9 !important;
+        background-color: #5BBD71 !important;
         border: 2px solid #ffffff !important;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
         cursor: grab !important;
@@ -151,9 +158,9 @@ with col_hdr_1:
 with col_hdr_2:
     st.markdown("""
     <div class="valio-header-card">
-        <div style="font-weight: 700; color: #0284c7; font-size: 0.88rem;">🛡️ Grupo VALIO S.A.S.</div>
+        <div style="font-weight: 700; color: #5BBD71; font-size: 0.88rem;">🛡️ Grupo VALIO S.A.S.</div>
         <div style="font-size: 0.74rem; color: #64748b;">Seguridad de Procesos & PPAM</div>
-        <div style="font-size: 0.70rem; margin-top: 0.15rem;"><a href="https://www.grupovalio.com" target="_blank" style="color: #0ea5e9; text-decoration: none;">www.grupovalio.com</a></div>
+        <div style="font-size: 0.70rem; margin-top: 0.15rem;"><a href="https://www.grupovalio.com" target="_blank" style="color: #7ed694; text-decoration: none;">www.grupovalio.com</a></div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -196,7 +203,7 @@ def compute_hyram_jet_flame(fuel_name, pres_pa, temp_k, orif_diam_m, cd, amb_pre
     }
 
 # ---------------------------------------------------------
-# PRESETS DE ESCENARIOS TÍPICOS (LEY DE HICK)
+# PRESETS DE ESCENARIOS TÍPICOS
 # ---------------------------------------------------------
 PRESET_SCENARIOS = {
     "Personalizado (Ajuste Manual)": None,
@@ -258,13 +265,13 @@ def apply_preset():
 # ---------------------------------------------------------
 # BARRA LATERAL: PARÁMETROS DE OPERACIÓN
 # ---------------------------------------------------------
-st.sidebar.header("🎯 Escenarios de Referencia (Ley de Hick)")
+st.sidebar.header("🎯 Escenarios de Referencia")
 st.sidebar.selectbox(
     "Cargar Preset Típico",
     list(PRESET_SCENARIOS.keys()),
     key="preset_selector",
     on_change=apply_preset,
-    help="Configura automáticamente parámetros de referencia de la industria reduciendo la sobrecarga de decisión."
+    help="Carga automáticamente parámetros de referencia típicos de la industria."
 )
 
 st.sidebar.markdown("---")
@@ -362,7 +369,7 @@ if calc_success:
     d_98 = results['distances'].get(9800)
     d_25 = results['distances'].get(25000)
 
-    # Indicador de Criticidad del Escenario (Ley de Hick / Feedback rápido)
+    # Indicador de Criticidad del Escenario
     d_crit = d_16 or 0
     if d_crit < 5.0:
         crit_badge = '<span style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid #10b981; padding: 0.2rem 0.6rem; border-radius: 6px; font-weight: 700; font-size: 0.78rem;">🟢 Impacto Térmico Bajo (< 5 m)</span>'
@@ -380,14 +387,14 @@ if calc_success:
     with m1:
         st.metric(
             label="Tasa de Fuga Másica",
-            value=f"{results['mass_flow'] * 1000:.2f} g/s",
-            delta=f"{results['mass_flow'] * 3600:.2f} kg/h",
+            value=f"{results['mass_flow'] * 1000:.1f} g/s",
+            delta=f"{results['mass_flow'] * 3600:.1f} kg/h",
             help="Caudal másico descargado a través del orificio."
         )
     with m2:
         st.metric(
             label="Longitud de Llama Visible",
-            value=f"{results['flame_length']:.2f} m",
+            value=f"{results['flame_length']:.1f} m",
             delta="Chorro turbulento",
             help="Longitud axial de llama visible (Ekoto et al. 2014)."
         )
@@ -395,15 +402,15 @@ if calc_success:
         st.metric(
             label="Potencia Radiativa Total",
             value=f"{results['s_rad'] / 1000:.1f} kW",
-            delta=f"{results['s_rad'] / 1e6:.3f} MW",
+            delta=f"{results['s_rad'] / 1e6:.1f} MW",
             help="Potencia de radiación emitida por la combustión."
         )
     with m4:
-        regime = "Sónico (Choked)" if results['choked'] else "Subsónico"
+        regime = "Sónico" if results['choked'] else "Subsónico"
         st.metric(
             label="Régimen de Escape",
             value=regime,
-            delta="Flujo crítico" if results['choked'] else "Normal",
+            delta="Flujo crítico (choked)" if results['choked'] else "Normal",
             help="Estado del flujo en la sección del orificio."
         )
 
@@ -423,22 +430,22 @@ if calc_success:
             st.markdown(f"""
             <div class="dist-badge dist-16">
                 <span>1.6 kW/m² (Público)</span>
-                <span><b>{d_16:.2f} m</b></span>
+                <span><b>{d_16:.1f} m</b></span>
             </div>
             <div class="dist-badge dist-47">
                 <span>4.7 kW/m² (Escape)</span>
-                <span><b>{d_47:.2f} m</b></span>
+                <span><b>{d_47:.1f} m</b></span>
             </div>
             """, unsafe_allow_html=True)
         with c2:
             st.markdown(f"""
             <div class="dist-badge dist-98">
                 <span>9.8 kW/m² (Equipos)</span>
-                <span><b>{d_98:.2f} m</b></span>
+                <span><b>{d_98:.1f} m</b></span>
             </div>
             <div class="dist-badge dist-25">
                 <span>25 kW/m² (Crítico)</span>
-                <span><b>{d_25:.2f} m</b></span>
+                <span><b>{d_25:.1f} m</b></span>
             </div>
             """, unsafe_allow_html=True)
 
@@ -454,7 +461,9 @@ if calc_success:
             color="Nivel de Radiación",
             color_discrete_sequence=["#10b981", "#f59e0b", "#f97316", "#ef4444"],
         )
+        fig_bar.update_traces(hovertemplate="%{y}: %{x:.1f} m<extra></extra>")
         fig_bar.update_layout(
+            xaxis=dict(tickformat=".1f"),
             showlegend=False,
             height=260,
             margin=dict(l=10, r=10, t=10, b=10)
@@ -507,17 +516,24 @@ if calc_success:
         fig_2d.add_trace(go.Scatter(
             x=[0, results['flame_length']], y=[0, 0], mode="lines+markers",
             line=dict(color="#38bdf8", width=3, dash="dot"),
-            name=f"Llama ({results['flame_length']:.2f} m)"
+            name=f"Llama ({results['flame_length']:.1f} m)"
         ))
 
+        fig_2d.update_traces(hovertemplate="X: %{x:.1f} m<br>Y: %{y:.1f} m<extra>%{fullData.name}</extra>")
         fig_2d.update_layout(
-            xaxis_title="Distancia Axial X (m)",
-            yaxis_title="Distancia Transversal Y (m)",
-            yaxis=dict(scaleanchor="x", scaleratio=1),
-            height=340,
+            xaxis=dict(title=dict(text="Distancia Axial X (m)", standoff=8), tickformat=".0f"),
+            yaxis=dict(title=dict(text="Distancia Transversal Y (m)"), scaleanchor="x", scaleratio=1, tickformat=".0f"),
+            height=420,
             template="plotly_dark",
-            margin=dict(l=10, r=10, t=10, b=10),
-            legend=dict(orientation="h", yanchor="bottom", y=-0.35, xanchor="center", x=0.5)
+            # Leyenda arriba del área de trazado para que no se cruce con el título del eje X
+            margin=dict(l=10, r=10, t=80, b=40),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom", y=1.02,
+                xanchor="center", x=0.5,
+                font=dict(size=11),
+                bgcolor="rgba(0,0,0,0)"
+            )
         )
         st.plotly_chart(fig_2d, use_container_width=True)
 
@@ -530,10 +546,10 @@ if calc_success:
     with col_table:
         st.markdown("##### 📋 Criterios Normativos (NFPA 2 / API 521 / ISO 19880-1)")
         df_summary = pd.DataFrame([
-            {"Norma": "NFPA 2 / API 521", "Umbral": "1.6 kW/m²", "Criterio": "Permanencia continua de personas sin EPP", "Distancia": f"{d_16:.2f} m" if d_16 else "N/A"},
-            {"Norma": "NFPA 2 / API 521", "Umbral": "4.7 kW/m²", "Criterio": "Escape rápido de personal (hasta 30 s)", "Distancia": f"{d_47:.2f} m" if d_47 else "N/A"},
-            {"Norma": "API 521 / NFPA 59A", "Umbral": "9.8 kW/m²", "Criterio": "Protección de equipos sin aislamiento ignífugo", "Distancia": f"{d_98:.2f} m" if d_98 else "N/A"},
-            {"Norma": "API 521", "Umbral": "25.0 kW/m²", "Criterio": "Peligro estructural inminente y combustión", "Distancia": f"{d_25:.2f} m" if d_25 else "N/A"}
+            {"Norma": "NFPA 2 / API 521", "Umbral": "1.6 kW/m²", "Criterio": "Permanencia continua de personas sin EPP", "Distancia": f"{d_16:.1f} m" if d_16 else "N/A"},
+            {"Norma": "NFPA 2 / API 521", "Umbral": "4.7 kW/m²", "Criterio": "Escape rápido de personal (hasta 30 s)", "Distancia": f"{d_47:.1f} m" if d_47 else "N/A"},
+            {"Norma": "API 521 / NFPA 59A", "Umbral": "9.8 kW/m²", "Criterio": "Protección de equipos sin aislamiento ignífugo", "Distancia": f"{d_98:.1f} m" if d_98 else "N/A"},
+            {"Norma": "API 521", "Umbral": "25.0 kW/m²", "Criterio": "Peligro estructural inminente y combustión", "Distancia": f"{d_25:.1f} m" if d_25 else "N/A"}
         ])
         st.dataframe(df_summary, use_container_width=True, hide_index=True)
 
